@@ -42,8 +42,8 @@ const camera = new THREE.PerspectiveCamera(
   1 / 100,
   1000
 );
-camera.position.set(15, 2, 0);
-camera.lookAt(new THREE.Vector3(0,0,0))
+camera.position.set(6, 10, 6);
+camera.lookAt(new THREE.Vector3(0,10,0))
 
 // const controls = new OrbitControls(camera, canvas);
 
@@ -268,6 +268,8 @@ function Animate() {
       Human.material.userData.shader.uniforms.uTime.value = Time;
     }
     Human.rotation.y = Time * .2;
+    camera.position.y = (Math.sin(Time * .6)) * 5;
+    stripEffect.uniforms.uProgress.value = Math.sin(Time * .15) + 1
   }
   Composer.render()
   // renderer.render(scene,camera)
