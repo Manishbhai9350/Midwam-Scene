@@ -1,14 +1,20 @@
 import "./style.css";
 import * as THREE from "three";
-import fragmentShader from "./shaders/fragment.glsl";
-import vertexShader from "./shaders/vertex.glsl";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Injection } from "./injection";
+
+// Postprocessing
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+import { HoloEffect } from "./yuri/holo";
+import { StripeShader } from "./shaders/strips/shader";
+
+
 import GUI from "lil-gui";
 
 const { PI } = Math;
@@ -25,6 +31,7 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true,
   alpha: true,
 });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2))
 renderer.setClearColor(0x050505);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.15;
@@ -35,9 +42,10 @@ const camera = new THREE.PerspectiveCamera(
   1 / 100,
   1000
 );
-camera.position.set(10, 0, 0);
+camera.position.set(15, 2, 0);
+camera.lookAt(new THREE.Vector3(0,0,0))
 
-const controls = new OrbitControls(camera, canvas);
+// const controls = new OrbitControls(camera, canvas);
 
 const lil = new GUI();
 lil.close()
@@ -58,28 +66,33 @@ GLB.setDRACOLoader(Draco);
 const Renderpass = new RenderPass(scene,camera)
 
 const BloomPass = new UnrealBloomPass(
-  new THREE.Vector2(3 * innerWidth,3 * innerHeight),
-  3.2133,.72,.229
+  new THREE.Vector2(innerWidth,innerHeight),
+  1.35,.7,.3
 )
 
 
-lil.add(BloomPass,'strength').min(0).max(4).step(.0001).onChange(e => {
-  BloomPass.strength = e
-})
-lil.add(BloomPass,'radius').min(0).max(2).step(.0001).onChange(e => {
-  BloomPass.radius = e
-})
-lil.add(BloomPass,'threshold').min(0).max(.5).step(.000001).onChange(e => {
-  BloomPass.threshold = e
-})
-lil.add(renderer, "toneMappingExposure").min(0).max(1).step(0.01);
+// lil.add(BloomPass,'strength').min(0).max(4).step(.0001).onChange(e => {
+//   BloomPass.strength = e
+// })
+// lil.add(BloomPass,'radius').min(0).max(2).step(.0001).onChange(e => {
+//   BloomPass.radius = e
+// })
+// lil.add(BloomPass,'threshold').min(0).max(.5).step(.000001).onChange(e => {
+//   BloomPass.threshold = e
+// })
+// lil.add(renderer, "toneMappingExposure").min(0).max(1).step(0.01);
 
 
 const Composer = new EffectComposer( renderer )
-Composer.setSize(3 * innerWidth,3 * innerHeight)
+Composer.setSize(innerWidth,innerHeight)
 Composer.addPass(Renderpass)
 Composer.addPass(BloomPass)
 
+const stripEffect = new ShaderPass( StripeShader );
+Composer.addPass( stripEffect );
+
+// lil.add(stripEffect.uniforms.sinedX,'value').min(0).max(5).name('sined X')
+lil.add(stripEffect.uniforms.uProgress,'value').min(0).max(2).name('Progress')
 
 
 
@@ -108,6 +121,7 @@ GLB.load("/models/camera.glb", (glb) => {
 });
 
 function StartScene() {
+  resize()
   const CameraRotationCon = CameraCon.children[0];
   // camera.position.copy(CameraCon.position);
   // camera.position.sub(CameraRotationCon.position);
@@ -127,9 +141,9 @@ function StartScene() {
     envMap:Env,
     envMapIntensity:1
   })
-  lil.add(Human.material,'metalness').min(0).max(1).step(.01)
-  lil.add(Human.material,'roughness').min(0).max(1).step(.01)
-  lil.add(Human.material,'envMapIntensity').min(0).max(1).step(.01)
+  // lil.add(Human.material,'metalness').min(0).max(1).step(.01)
+  // lil.add(Human.material,'roughness').min(0).max(1).step(.01)
+  // lil.add(Human.material,'envMapIntensity').min(0).max(1).step(.01)
 
   Human.material.onBeforeCompile = (shader) => {
     const fragInject = new Injection();
@@ -248,6 +262,7 @@ function Animate() {
   const Time = clock.getElapsedTime();
   const DT = Time - PrevTime;
   PrevTime = Time;
+  stripEffect.uniforms.uTime.value = Time;
   if (Human) {
     if(Human.material.userData.shader){
       Human.material.userData.shader.uniforms.uTime.value = Time;
@@ -267,7 +282,8 @@ function resize() {
   canvas.width = innerWidth;
   canvas.height = innerHeight;
   renderer.setSize(innerWidth, innerHeight);
-  Composer.setSize(3 * innerWidth,3 * innerHeight)
+  Composer.setSize(innerWidth,innerHeight)
 }
+
 
 window.addEventListener("resize", resize);
